@@ -11,6 +11,9 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_ipaddr
 from flask_migrate import Migrate
 
+from logging.handlers import RotatingFileHandler
+from pythonjsonlogger import jsonlogger
+
 from redash import settings
 from redash.query_runner import import_query_runners
 from redash.destinations import import_destinations
@@ -31,6 +34,19 @@ def setup_logging():
         logging.getLogger("passlib").setLevel("ERROR")
         logging.getLogger("requests.packages.urllib3").setLevel("ERROR")
         logging.getLogger("snowflake.connector").setLevel("ERROR")
+
+    #setup the audit logger
+    audit_log_file_name = 'redash.query.audit.log'
+    audit_file_handler = RotatingFileHandler(
+        audit_log_file_name,
+        maxBytes=10240,
+        backupCount=5
+    )
+    audit_logger = logging.getLogger('query.audit')
+    audit_formatter = jsonlogger.JsonFormatter()
+    audit_file_handler.setFormatter(audit_formatter)
+    audit_logger.addHandler(audit_file_handler)
+    audit_logger.setLevel("INFO")
 
 
 def create_redis_connection():

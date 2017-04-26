@@ -3,8 +3,9 @@ import time
 import logging
 import signal
 import redis
+import datetime
 from celery.result import AsyncResult
-from celery.utils.log import get_task_logger
+from celery.utils.log import get_task_logger, get_logger
 from redash import redis_connection, models, statsd_client, settings, utils
 from redash.utils import gen_query_hash
 from redash.worker import celery
@@ -12,6 +13,15 @@ from redash.query_runner import InterruptException
 from .alerts import check_alerts_for_query
 
 logger = get_task_logger(__name__)
+query_audit_logger = logging.getLogger('query.audit')
+
+def log_query(query, username=None):
+    log_payload = {
+        'query': str(query),
+        'username': str(username),
+        'timestamp': str(datetime.datetime.now().isoformat())
+    }
+    query_audit_logger.info(log_payload)
 
 
 def _job_lock_id(query_hash, data_source_id):
@@ -204,7 +214,7 @@ def enqueue_query(query, data_source, user_id, scheduled_query=None, metadata={}
     logging.info("Inserting job for %s with metadata=%s", query_hash, metadata)
     try_count = 0
     job = None
-
+    log_query(query, metadata['Username'])
     while try_count < 5:
         try_count += 1
 
@@ -265,7 +275,7 @@ def refresh_queries():
 
     with statsd_client.timer('manager.outdated_queries_lookup'):
         for query in models.Query.outdated_queries():
-            if settings.FEATURE_DISABLE_REFRESH_QUERIES: 
+            if settings.FEATURE_DISABLE_REFRESH_QUERIES:
                 logging.info("Disabled refresh queries.")
             elif query.data_source.paused:
                 logging.info("Skipping refresh of %s because datasource - %s is paused (%s).", query.id, query.data_source.name, query.data_source.pause_reason)

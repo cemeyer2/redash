@@ -111,6 +111,7 @@ class DataSourceSchemaResource(BaseResource):
         data_source = get_object_or_404(models.DataSource.get_by_id_and_org, data_source_id, self.current_org)
         require_access(data_source.groups, self.current_user, view_only)
         refresh = request.args.get('refresh') is not None
+        #TODO: put logging here if we want to log access of the query that gets the schema
         schema = data_source.get_schema(refresh)
 
         return schema
